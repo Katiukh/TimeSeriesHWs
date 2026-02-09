@@ -41,16 +41,16 @@ def expanding_window_validation(
     n_timestamps = len(unique_timestamps)
 
     # Трейн начинается с 0 и идет до start_train_size
-    train_start_idx = ...
-    train_end_idx = ...
+    train_start_idx = 0
+    train_end_idx = start_train_size
 
     # Валидация включает history точек из конца трейна и идет до horizon точек после трейна
-    val_start_idx = ...
-    val_end_idx = ...
+    val_start_idx = train_end_idx - history
+    val_end_idx = train_end_idx + horizon
 
     # Тест включает history точек из конца трейна + валидации и идет до horizon точек после валидации
-    test_start_idx = ...
-    test_end_idx = ...
+    test_start_idx = val_end_idx - history
+    test_end_idx = val_end_idx + horizon
 
     while test_end_idx <= n_timestamps:
         # Чтобы не было лика в test, маскируем то, что мы не знаем на момент предсказания
@@ -59,9 +59,9 @@ def expanding_window_validation(
             data_masked[timestamp_col] < unique_timestamps[test_start_idx + history], np.nan
         )
 
-        train_mask = ...
-        val_mask = ...
-        test_mask = ...
+        train_mask = (data_masked[timestamp_col] >= unique_timestamps[train_start_idx]) & (data_masked[timestamp_col] < unique_timestamps[train_end_idx])
+        val_mask = (data_masked[timestamp_col] >= unique_timestamps[val_start_idx]) & (data_masked[timestamp_col] < unique_timestamps[val_end_idx])
+        test_mask = (data_masked[timestamp_col] >= unique_timestamps[test_start_idx]) & (data_masked[timestamp_col] < unique_timestamps[test_end_idx])
 
         train_data = data_masked[train_mask]
         val_data = data_masked[val_mask]
@@ -69,7 +69,7 @@ def expanding_window_validation(
 
         # Обучаем модель на трейне и валидации и делаем прогноз на тесте
         model.fit(train_data, val_data)
-        predictions = ...
+        predictions = model.predict(test_data)
 
         # Восстанавливаем истинные значения для теста
         test_data_unmasked = data[test_mask]
@@ -93,11 +93,11 @@ def expanding_window_validation(
         res_df_list.append(res_df)
 
         # Расширяем окно
-        train_end_idx = ...
-        val_start_idx = ...
-        val_end_idx = ...
-        test_start_idx = ...
-        test_end_idx = ...
+        train_end_idx = train_end_idx + step_size
+        val_start_idx = train_end_idx - history
+        val_end_idx = train_end_idx + horizon
+        test_start_idx = val_end_idx - history
+        test_end_idx = val_end_idx + horizon
 
     res_df = pd.concat(res_df_list).reset_index(drop=True)
 
