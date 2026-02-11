@@ -324,15 +324,6 @@ class CatBoostDirect(BaseModel):
                 date_column=timestamp_col,
                 target_column=value_col,
             )
-            # Инициализируем и обучаем модель CatBoost
-            cb_model = cb.CatBoostRegressor(
-                loss_function="MultiRMSE",
-                random_seed=42,
-                verbose=100,
-                early_stopping_rounds=100,
-                iterations=1500,
-                cat_features=categorical_features_idx,
-            )
             train_dataset = cb.Pool(
                 data=train_features, label=train_targets, cat_features=categorical_features_idx
             )
