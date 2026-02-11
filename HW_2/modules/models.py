@@ -184,8 +184,8 @@ class CatBoostRecursive(BaseModel):
                 loss_function="MultiRMSE",
                 random_seed=42,
                 verbose=100,
-                early_stopping_rounds=100,
-                iterations=1500,
+                early_stopping_rounds=50,
+                iterations=200,
                 cat_features=categorical_features_idx,
             )
         train_dataset = cb.Pool(
@@ -338,7 +338,7 @@ class CatBoostDirect(BaseModel):
                 loss_function="RMSE",
                 random_seed=42,
                 verbose=100,
-                iterations=300,
+                iterations=200,
                 learning_rate=0.1,         
                 depth=6,                    
                 early_stopping_rounds=50,   
@@ -482,7 +482,7 @@ class CatBoostDirectMIMO(BaseModel):
                 loss_function="MultiRMSE",
                 random_seed=42,
                 verbose=100,
-                iterations=300,
+                iterations=200,
                 learning_rate=0.1,         
                 depth=6,                    
                 early_stopping_rounds=50,   
