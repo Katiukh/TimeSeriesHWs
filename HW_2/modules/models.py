@@ -334,7 +334,6 @@ class CatBoostDirect(BaseModel):
                 loss_function="MultiRMSE",
                 random_seed=42,
                 verbose=100,
-                early_stopping_rounds=100,
                 iterations=300,
                 learning_rate=0.1,         
                 depth=6,                    
