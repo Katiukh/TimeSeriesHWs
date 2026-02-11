@@ -266,13 +266,15 @@ def direct_mimo_features__test_idx(
     features_indices = []
     targets_indices = []
 
+    win = history_size + offset + model_horizon
+
     for i in range(len(series_start_indices) - 1):
         series_start = series_start_indices[i]
-        series_end = series_start + history_size + offset + model_horizon
+        series_end = series_start + win
 
-        window = np.arange(series_start, series_end)
+        window = np.arange(series_start, series_end)  # (win,)
 
-        features_indices.append(window[:, :history_size])
-        targets_indices.append(window[:, -model_horizon:])
+        features_indices.append(window[:history_size])          
+        targets_indices.append(window[-model_horizon:])        
 
     return np.vstack(features_indices), np.vstack(targets_indices)
