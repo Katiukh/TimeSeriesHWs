@@ -221,3 +221,59 @@ def direct_features__test_idx(
     targets_indices = np.vstack(targets_indices)
 
     return features_indices, targets_indices
+
+def direct_mimo_features_targets__train_idx(
+    id_column,
+    series_length: int,
+    model_horizon: int,
+    history_size: int,
+    offset: int,
+):
+    series_start_indices = np.append(
+        np.unique(id_column.values, return_index=True)[1], series_length
+    )
+
+    features_indices = []
+    targets_indices = []
+
+    for i in range(len(series_start_indices) - 1):
+        series_start = series_start_indices[i]
+        series_end = series_start_indices[i + 1]
+
+        if series_end  - series_start < history_size + offset + model_horizon:
+            continue
+
+        sliding_window = np.lib.stride_tricks.sliding_window_view(np.arange(sseries_start, series_end), history_size + offset + model_horizon)
+
+        features_indices.append(sliding_window[:, :history_size])
+
+        targets_indices.append(sliding_window[:, -model_horizon:])
+
+    return np.vstack(features_indices), np.vstack(targets_indices)
+
+
+def direct_mimo_features__test_idx(
+    id_column,
+    series_length: int,
+    model_horizon: int,
+    history_size: int,
+    offset: int,
+):
+    series_start_indices = np.append(
+        np.unique(id_column.values, return_index=True)[1], series_length
+    )
+
+    features_indices = []
+    target_indices = []
+    win = history_size + offset + model_horizon
+
+    for i in range(len(series_start_indices) - 1):
+        series_start = series_start_indices[i]
+        series_end = series_start + history_size + offset + model_horizon
+
+        slising_window = np.lib.stride_tricks.sliding_window_view(np.arange(series_start, series_end), history_size + offset + model_horizon)
+
+        features_indices.append(sw[:, :history_size])
+        target_indices.append(sw[:, -model_horizon:])
+
+    return np.vstack(features_indices), np.vstack(target_indices)
