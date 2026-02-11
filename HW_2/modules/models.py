@@ -180,7 +180,7 @@ class CatBoostRecursive(BaseModel):
             target_column=value_col,
         )
         # Инициализируем и обучаем модель CatBoost
-         cb_model = cb.CatBoostRegressor(
+        cb_model = cb.CatBoostRegressor(
                 loss_function="MultiRMSE",
                 random_seed=42,
                 verbose=100,
