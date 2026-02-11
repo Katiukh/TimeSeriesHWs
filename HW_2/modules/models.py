@@ -324,6 +324,10 @@ class CatBoostDirect(BaseModel):
                 date_column=timestamp_col,
                 target_column=value_col,
             )
+
+            train_targets = train_targets.reshape(-1)   
+            val_targets = val_targets.reshape(-1)
+
             train_dataset = cb.Pool(
                 data=train_features, label=train_targets, cat_features=categorical_features_idx
             )
