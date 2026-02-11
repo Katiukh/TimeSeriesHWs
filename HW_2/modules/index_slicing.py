@@ -270,9 +270,9 @@ def direct_mimo_features__test_idx(
         series_start = series_start_indices[i]
         series_end = series_start + history_size + offset + model_horizon
 
-        sliding_window = np.lib.stride_tricks.sliding_window_view(np.arange(series_start, series_end), history_size + offset + model_horizon)
+        window = np.arange(series_start, series_end)
 
-        features_indices.append(sliding_window[:, :history_size])
-        targets_indices.append(sliding_window[:, -model_horizon:])
+        features_indices.append(window[:, :history_size])
+        targets_indices.append(window[:, -model_horizon:])
 
     return np.vstack(features_indices), np.vstack(targets_indices)
