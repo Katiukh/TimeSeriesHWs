@@ -134,3 +134,90 @@ def get_cols_idx(data: pd.DataFrame, columns: Union[str, Sequence[str]]) -> Unio
     else:
         idx = data.columns.get_indexer(columns)
     return idx
+
+def direct_features_targets__train_idx(
+    id_column: pd.Series,
+    series_length: int,
+    horizon_step: int,
+    history_size: int,
+) -> np.ndarray:
+    """Создание индексов для формирования обучающей выборки (признаков и таргетов) для многомерных временных рядов.
+    Args:
+        id_column: Колонка с идентификаторами рядов.
+        series_length: Общая длина всех рядов.
+        horizon_step: Шаг прогнозирования.
+        history_size: Размер окна истории.
+
+    Returns:
+        Индексы для формирования признаков и таргетов.
+
+    """
+    series_start_indices = np.append(
+        np.unique(id_column.values, return_index=True)[1], series_length
+    )
+
+    features_indices = []
+    targets_indices = []
+    for i in range(len(series_start_indices) - 1):
+        series_start = series_start_indices[i]
+        series_end = series_start_indices[i + 1]
+
+        if series_end - series_start < history_size + horizon_step:
+            continue  # Пропускаем ряды, которые слишком короткие для формирования окна истории + таргета
+
+        sliding_window = np.lib.stride_tricks.sliding_window_view(
+            np.arange(series_start, series_end),
+            history_size + horizon_step,
+        )
+
+        features_indices.append(sliding_window[:, :history_size])
+        targets_indices.append(sliding_window[:, -1:])
+
+    features_indices = np.vstack(features_indices)
+    targets_indices = np.vstack(targets_indices)
+
+    return features_indices, targets_indices
+
+def direct_features__test_idx(
+    id_column: pd.Series,
+    series_length: int,
+    horizon_step: int,
+    history_size: int,
+) -> np.ndarray:
+    """Создание индексов для формирования тестовой выборки для многомерных временных рядов.
+    Args:
+        id_column: Колонка с идентификаторами рядов.
+        series_length: Общая длина всех рядов.
+        horizon_step: Шаг прогнозирования.
+        history_size: Размер окна истории.
+
+    Returns:
+        Индексы для формирования признаков.
+        Обратите внимание, что для признаков тестовой выборки нужны только последние history индексов.
+
+    """
+    series_start_indices = np.append(
+        np.unique(id_column.values, return_index=True)[1], series_length
+    )
+
+    features_indices = []
+    targets_indices = []
+    for i in range(len(series_start_indices) - 1):
+        series_start = series_start_indices[i]
+        series_end = series_start + history_size + horizon_step
+
+        if series_end - series_start < history_size + horizon_step:
+            AssertionError(f"Ряд {i} слишком короткий для формирования окна истории + таргета")
+
+        sliding_window = np.lib.stride_tricks.sliding_window_view(
+            np.arange(series_start, series_end),
+            history_size + horizon_step,
+        )
+
+        features_indices.append(sliding_window[:, :history_size])
+        targets_indices.append(sliding_window[:, -1:])
+
+    features_indices = np.vstack(features_indices)
+    targets_indices = np.vstack(targets_indices)
+
+    return features_indices, targets_indices
