@@ -341,6 +341,12 @@ class CatBoostDirect(BaseModel):
                 task_type="GPU",
                 cat_features=categorical_features_idx,
             )
+            cb_model.fit(
+                train_dataset,
+                eval_set=eval_dataset,
+                use_best_model=True,
+                plot=False,
+            )
             self.models.append(cb_model)
 
     def predict(self, test_data, id_col="sensor_id", timestamp_col="timestamp", value_col="value"):
