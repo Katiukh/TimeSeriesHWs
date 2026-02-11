@@ -5,7 +5,7 @@ from statsforecast import StatsForecast
 from statsforecast.models import Naive
 
 from .feature_generation import get_features_df_and_targets
-from .index_slicing import features__test_idx, features_targets__train_idx, direct_features__test_idx, direct_features_targets__train_idx
+from .index_slicing import features__test_idx, features_targets__train_idx, direct_features__test_idx, direct_features_targets__train_idx, direct_mimo_features__test_idx, direct_mimo_features_targets__train_idx
 
 
 class BaseModel:
@@ -397,3 +397,151 @@ class CatBoostDirect(BaseModel):
         test_data = test_data.rename(columns={value_col: "predicted_value"})
     
         return test_data[[id_col, timestamp_col, "predicted_value"]].reset_index(drop=True)
+
+class CatBoostDirectMIMO(BaseModel):
+    """Модель CatBoost с прямой стратегией прогнозирования."""
+
+    def __init__(self, model_horizon: int, history: int, horizon: int, freq: str):
+        """Инициализация модели.
+
+        Args:
+            - model_horizon: Горизонт прогнозирования модели.
+            - history: Размер окна истории.
+            - horizon: Общий горизонт прогнозирования.
+            - freq: Частота временного ряда.
+
+        """
+        self.model_horizon = model_horizon
+        self.history = history
+        self.horizon = horizon
+        self.freq = freq
+        self.models = []
+
+    def fit(
+        self,
+        train_data,
+        val_data,
+        id_col="sensor_id",
+        timestamp_col="timestamp",
+        value_col="value",
+    ):
+        """Обучение модели на тренировочных и валидационных данных.
+
+        Args:
+        - train_data: DataFrame с тренировочными данными.
+        - val_data: DataFrame с валидационными данными.
+        - id_col: название столбца с идентификатором ряда.
+        - timestamp_col: название столбца с временной меткой.
+        - value_col: название столбца с значением ряда.
+
+        """
+        steps = self.horizon // self.model_horizon
+        
+        for h in range(steps):
+            offset = self.model_horizon * h
+            
+            train_features_idx, train_targets_idx = direct_mimo_features_targets__train_idx(
+                id_column=train_data[id_col],
+                series_length=len(train_data),
+                horizon_step=h,
+                history_size=self.history,
+            )
+            val_features_idx, val_targets_idx = direct_mimo_features_targets__train_idx(
+                id_column=val_data[id_col],
+                series_length=len(val_data),
+                model_horizon=self.model_horizon,
+                history_size=self.history,
+                offset=offset
+            )
+            # Генерируем признаки и таргеты
+            train_features, train_targets, categorical_features_idx = get_features_df_and_targets(
+                train_data,
+                train_features_idx,
+                train_targets_idx,
+                id_column=id_col,
+                date_column=timestamp_col,
+                target_column=value_col,
+            )
+            val_features, val_targets, _ = get_features_df_and_targets(
+                val_data,
+                val_features_idx,
+                val_targets_idx,
+                id_column=id_col,
+                date_column=timestamp_col,
+                target_column=value_col,
+            )
+
+            train_dataset = cb.Pool(
+                data=train_features, label=train_targets, cat_features=categorical_features_idx
+            )
+            eval_dataset = cb.Pool(
+                data=val_features, label=val_targets, cat_features=categorical_features_idx
+            )
+            cb_model = cb.CatBoostRegressor(
+                loss_function="MultiRMSE",
+                random_seed=42,
+                verbose=100,
+                iterations=300,
+                learning_rate=0.1,         
+                depth=6,                    
+                early_stopping_rounds=50,   
+                task_type="GPU",
+                cat_features=categorical_features_idx,
+            )
+            cb_model.fit(
+                train_dataset,
+                eval_set=eval_dataset,
+                use_best_model=True,
+                plot=False,
+            )
+
+            self.models.append(cb_model)
+
+    def predict(self, test_data, id_col="sensor_id", timestamp_col="timestamp", value_col="value"):
+        """Прогнозирование на тестовых данных.
+
+        Args:
+        - test_data: DataFrame с тестовыми данными.
+        - id_col: название столбца с идентификатором ряда.
+        - timestamp_col: название столбца с временной меткой.
+        - value_col: название столбца с значением ряда.
+
+        Returns:
+        - predictions: DataFrame с предсказанными значениями со столбцами
+            [id_col, timestamp_col, 'predicted_value'].
+
+        """
+        value_col_idx = test_data.columns.get_loc(value_col)
+        steps = self.horizon // self.model_horizon
+        
+        for h in range(steps):
+            offset = self.model_horizon * h
+            
+            test_features_idx, target_features_idx = direct_mimo_features__test_idx(
+                id_column=test_data[id_col],
+                series_length=len(test_data),
+                model_horizon=self.model_horizon,
+                history_size=self.history,
+                offset=offset
+            )
+    
+            test_features, _, _ = get_features_df_and_targets(
+                test_data,
+                test_features_idx,
+                target_features_idx,  
+                id_column=id_col,
+                date_column=timestamp_col,
+                target_column=value_col,
+            )
+    
+            preds = self.models[h].predict(test_features)
+            preds = np.asarray(preds).reshape(-1)
+    
+            test_data.iloc[target_features_idx.flatten(), value_col_idx] = preds
+    
+        first_test_date = np.sort(np.unique(test_data[timestamp_col]))[self.history]
+        test_data = test_data[test_data[timestamp_col] >= first_test_date].copy()
+        test_data = test_data.rename(columns={value_col: "predicted_value"})
+    
+        return test_data[[id_col, timestamp_col, "predicted_value"]].reset_index(drop=True)
+
