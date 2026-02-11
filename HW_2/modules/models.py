@@ -331,7 +331,7 @@ class CatBoostDirect(BaseModel):
                 data=val_features, label=val_targets, cat_features=categorical_features_idx
             )
             cb_model = cb.CatBoostRegressor(
-                loss_function="MultiRMSE",
+                loss_function="RMSE",
                 random_seed=42,
                 verbose=100,
                 iterations=300,
