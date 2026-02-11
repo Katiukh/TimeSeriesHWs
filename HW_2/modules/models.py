@@ -348,12 +348,6 @@ class CatBoostDirect(BaseModel):
                 plot=False,
             )
 
-            train_dataset = cb.Pool(
-            data=train_features, label=train_targets, cat_features=categorical_features_idx
-            )
-            eval_dataset = cb.Pool(
-                data=val_features, label=val_targets, cat_features=categorical_features_idx
-            )
             self.models.append(cb_model)
 
     def predict(self, test_data, id_col="sensor_id", timestamp_col="timestamp", value_col="value"):
