@@ -180,18 +180,14 @@ class CatBoostRecursive(BaseModel):
             target_column=value_col,
         )
         # Инициализируем и обучаем модель CatBoost
-        cb_model = cb.CatBoostRegressor(
-            loss_function="MultiRMSE",
-            random_seed=42,
-            verbose=100,
-            early_stopping_rounds=100,
-            iterations=300,
-            learning_rate=0.1,         
-            depth=6,                    
-            early_stopping_rounds=50,   
-            task_type="GPU" 
-            cat_features=categorical_features_idx,
-        )
+         cb_model = cb.CatBoostRegressor(
+                loss_function="MultiRMSE",
+                random_seed=42,
+                verbose=100,
+                early_stopping_rounds=100,
+                iterations=1500,
+                cat_features=categorical_features_idx,
+            )
         train_dataset = cb.Pool(
             data=train_features, label=train_targets, cat_features=categorical_features_idx
         )
@@ -343,11 +339,17 @@ class CatBoostDirect(BaseModel):
             eval_dataset = cb.Pool(
                 data=val_features, label=val_targets, cat_features=categorical_features_idx
             )
-            cb_model.fit(
-                train_dataset,
-                eval_set=eval_dataset,
-                use_best_model=True,
-                plot=False,
+            cb_model = cb.CatBoostRegressor(
+                loss_function="MultiRMSE",
+                random_seed=42,
+                verbose=100,
+                early_stopping_rounds=100,
+                iterations=300,
+                learning_rate=0.1,         
+                depth=6,                    
+                early_stopping_rounds=50,   
+                task_type="GPU",
+                cat_features=categorical_features_idx,
             )
             self.models.append(cb_model)
 
