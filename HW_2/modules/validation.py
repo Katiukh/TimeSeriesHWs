@@ -68,8 +68,19 @@ def expanding_window_validation(
         test_data = data_masked[test_mask]
 
         # Обучаем модель на трейне и валидации и делаем прогноз на тесте
-        model.fit(train_data, val_data)
-        predictions = model.predict(test_data)
+        model.fit(
+            train_data,
+            val_data,
+            id_col=id_col,
+            timestamp_col=timestamp_col,
+            value_col=value_col,
+                )
+        predictions = model.predict(
+            test_data,
+            id_col=id_col,
+            timestamp_col=timestamp_col,
+            value_col=value_col,
+        )
 
         # Восстанавливаем истинные значения для теста
         test_data_unmasked = data[test_mask]
