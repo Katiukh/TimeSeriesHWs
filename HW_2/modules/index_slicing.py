@@ -279,16 +279,18 @@ def direct_mimo_features__test_idx(
         series_start = series_start_indices[i]
         series_end = series_start_indices[i + 1]
 
-        if series_end - series_start < total_size:
+        series_len = series_end - series_start
+        if series_len < total_size:
             raise ValueError(
-                f"Ряд {i} слишком короткий: нужен минимум {total_size}, есть {series_end - series_start}"
+                f"Ряд {i} слишком короткий: нужен минимум {total_size}, есть {series_len}"
             )
 
-        # для теста берем только одно окно: самое начало блока,
-        # где history уже есть, а target еще пустой/будущий
-        window = np.arange(series_start, series_start + total_size)
+        # Берем ПОСЛЕДНЕЕ возможное окно ряда, а не первое
+        window = np.arange(series_end - total_size, series_end)
 
         features_indices.append(window[:history_size])
-        targets_indices.append(window[history_size + offset: history_size + offset + model_horizon])
+        targets_indices.append(
+            window[history_size + offset : history_size + offset + model_horizon]
+        )
 
     return np.vstack(features_indices), np.vstack(targets_indices)
