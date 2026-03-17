@@ -481,7 +481,6 @@ class CatBoostDirectMIMO(BaseModel):
                 learning_rate=0.1,
                 depth=6,
                 early_stopping_rounds=50,
-                task_type="GPU",
                 cat_features=categorical_features_idx,
             )
 
