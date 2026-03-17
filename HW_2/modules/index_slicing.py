@@ -293,3 +293,38 @@ def direct_mimo_features__test_idx(
         )
 
     return np.vstack(features_indices), np.vstack(targets_indices)
+def direct_mimo_features_targets__holdout_idx(
+    id_column: pd.Series,
+    series_length: int,
+    model_horizon: int,
+    history_size: int,
+    offset: int,
+):
+    series_start_indices = np.append(
+        np.unique(id_column.values, return_index=True)[1], series_length
+    )
+
+    features_indices = []
+    targets_indices = []
+
+    total_size = history_size + offset + model_horizon
+
+    for i in range(len(series_start_indices) - 1):
+        series_start = series_start_indices[i]
+        series_end = series_start_indices[i + 1]
+
+        series_len = series_end - series_start
+        if series_len < total_size:
+            raise ValueError(
+                f"Ряд {i} слишком короткий: нужен минимум {total_size}, есть {series_len}"
+            )
+
+        # holdout уже имеет структуру [history | future]
+        window = np.arange(series_start, series_start + total_size)
+
+        features_indices.append(window[:history_size])
+        targets_indices.append(
+            window[history_size + offset : history_size + offset + model_horizon]
+        )
+
+    return np.vstack(features_indices), np.vstack(targets_indices)
