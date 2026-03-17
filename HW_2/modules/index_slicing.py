@@ -223,7 +223,7 @@ def direct_features__test_idx(
     return features_indices, targets_indices
 
 def direct_mimo_features_targets__train_idx(
-    id_column,
+    id_column: pd.Series,
     series_length: int,
     model_horizon: int,
     history_size: int,
@@ -235,25 +235,32 @@ def direct_mimo_features_targets__train_idx(
 
     features_indices = []
     targets_indices = []
+
+    window_size = history_size + offset + model_horizon
 
     for i in range(len(series_start_indices) - 1):
         series_start = series_start_indices[i]
         series_end = series_start_indices[i + 1]
 
-        if series_end  - series_start < history_size + offset + model_horizon:
+        if series_end - series_start < window_size:
             continue
 
-        sliding_window = np.lib.stride_tricks.sliding_window_view(np.arange(series_start, series_end), history_size + offset + model_horizon)
+        sliding_window = np.lib.stride_tricks.sliding_window_view(
+            np.arange(series_start, series_end),
+            window_size
+        )
 
+        # признаки = первые history_size значений
         features_indices.append(sliding_window[:, :history_size])
 
-        targets_indices.append(sliding_window[:, -model_horizon:])
+        # таргет = блок длины model_horizon после offset
+        targets_indices.append(sliding_window[:, history_size + offset: history_size + offset + model_horizon])
 
     return np.vstack(features_indices), np.vstack(targets_indices)
 
 
 def direct_mimo_features__test_idx(
-    id_column,
+    id_column: pd.Series,
     series_length: int,
     model_horizon: int,
     history_size: int,
@@ -266,15 +273,22 @@ def direct_mimo_features__test_idx(
     features_indices = []
     targets_indices = []
 
-    win = history_size + offset + model_horizon
+    total_size = history_size + offset + model_horizon
 
     for i in range(len(series_start_indices) - 1):
         series_start = series_start_indices[i]
-        series_end = series_start + win
+        series_end = series_start_indices[i + 1]
 
-        window = np.arange(series_start, series_end)  # (win,)
+        if series_end - series_start < total_size:
+            raise ValueError(
+                f"Ряд {i} слишком короткий: нужен минимум {total_size}, есть {series_end - series_start}"
+            )
 
-        features_indices.append(window[:history_size])          
-        targets_indices.append(window[-model_horizon:])        
+        # для теста берем только одно окно: самое начало блока,
+        # где history уже есть, а target еще пустой/будущий
+        window = np.arange(series_start, series_start + total_size)
+
+        features_indices.append(window[:history_size])
+        targets_indices.append(window[history_size + offset: history_size + offset + model_horizon])
 
     return np.vstack(features_indices), np.vstack(targets_indices)
