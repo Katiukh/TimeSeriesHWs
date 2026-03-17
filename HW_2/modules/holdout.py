@@ -23,27 +23,35 @@ def make_holdout_split(
     data = data.sort_values([id_col, timestamp_col]).reset_index(drop=True)
 
     train_parts = []
-    holdout_parts = []
+    holdout_fit_parts = []
+    holdout_pred_parts = []
     truth_parts = []
 
     for uid, g in data.groupby(id_col, sort=False):
         g = g.sort_values(timestamp_col).reset_index(drop=True)
 
         train_part = g.iloc[:-horizon].copy()
-        holdout_part = g.iloc[-(history + horizon):].copy()
+
+        # для fit: holdout с истинными значениями
+        holdout_fit_part = g.iloc[-(history + horizon):].copy()
+
+        # для predict: те же строки, но будущее замаскировано
+        holdout_pred_part = holdout_fit_part.copy()
+        holdout_pred_part.loc[holdout_pred_part.index[-horizon:], value_col] = np.nan
+
         truth_part = g.iloc[-horizon:][[id_col, timestamp_col, value_col]].copy()
 
-        holdout_part.loc[holdout_part.index[-horizon:], value_col] = np.nan
-
         train_parts.append(train_part)
-        holdout_parts.append(holdout_part)
+        holdout_fit_parts.append(holdout_fit_part)
+        holdout_pred_parts.append(holdout_pred_part)
         truth_parts.append(truth_part)
 
     train_df = pd.concat(train_parts, ignore_index=True)
-    holdout_df = pd.concat(holdout_parts, ignore_index=True)
+    holdout_fit_df = pd.concat(holdout_fit_parts, ignore_index=True)
+    holdout_pred_df = pd.concat(holdout_pred_parts, ignore_index=True)
     truth_df = pd.concat(truth_parts, ignore_index=True)
 
-    return train_df, holdout_df, truth_df
+    return train_df, holdout_fit_df, holdout_pred_df, truth_df
 
 
 def run_holdout_experiment(
@@ -58,7 +66,7 @@ def run_holdout_experiment(
     value_col: str = "y",
     seasonality: int = 12,
 ):
-    train_df, holdout_df, truth_df = make_holdout_split(
+    train_df, holdout_fit_df, holdout_pred_df, truth_df = make_holdout_split(
         data=data,
         id_col=id_col,
         timestamp_col=timestamp_col,
@@ -77,14 +85,14 @@ def run_holdout_experiment(
 
     model.fit(
         train_df,
-        holdout_df,
+        holdout_fit_df,
         id_col=id_col,
         timestamp_col=timestamp_col,
         value_col=value_col,
     )
 
     pred_df = model.predict(
-        holdout_df,
+        holdout_pred_df,
         id_col=id_col,
         timestamp_col=timestamp_col,
         value_col=value_col,
@@ -102,7 +110,8 @@ def run_holdout_experiment(
 
     return {
         "train_df": train_df,
-        "holdout_df": holdout_df,
+        "holdout_fit_df": holdout_fit_df,
+        "holdout_pred_df": holdout_pred_df,
         "truth_df": truth_df,
         "pred_df": pred_df,
         "merged_predictions": metrics["merged_predictions"],
