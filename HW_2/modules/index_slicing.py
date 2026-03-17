@@ -285,8 +285,7 @@ def direct_mimo_features__test_idx(
                 f"Ряд {i} слишком короткий: нужен минимум {total_size}, есть {series_len}"
             )
 
-        # Берем ПОСЛЕДНЕЕ возможное окно ряда, а не первое
-        window = np.arange(series_end - total_size, series_end)
+        window = np.arange(series_start, series_start + total_size)
 
         features_indices.append(window[:history_size])
         targets_indices.append(
