@@ -415,132 +415,123 @@ class CatBoostDirectMIMO(BaseModel):
         self.feature_config = feature_config or {}
 
     def fit(
-    self,
-    train_data,
-    val_data,
-    id_col="sensor_id",
-    timestamp_col="timestamp",
-    value_col="value",
-):
-    steps = self.horizon // self.model_horizon
-    self.models = []
+        self,
+        train_data,
+        val_data,
+        id_col="sensor_id",
+        timestamp_col="timestamp",
+        value_col="value",
+    ):
+        steps = self.horizon // self.model_horizon
+        self.models = []
 
-    for h in range(steps):
-        offset = self.model_horizon * h
+        for h in range(steps):
+            offset = self.model_horizon * h
 
-        train_features_idx, train_targets_idx = direct_mimo_features_targets__train_idx(
-            id_column=train_data[id_col],
-            series_length=len(train_data),
-            model_horizon=self.model_horizon,
-            history_size=self.history,
-            offset=offset,
-        )
-        val_features_idx, val_targets_idx = direct_mimo_features_targets__train_idx(
-            id_column=val_data[id_col],
-            series_length=len(val_data),
-            model_horizon=self.model_horizon,
-            history_size=self.history,
-            offset=offset,
-        )
+            train_features_idx, train_targets_idx = direct_mimo_features_targets__train_idx(
+                id_column=train_data[id_col],
+                series_length=len(train_data),
+                model_horizon=self.model_horizon,
+                history_size=self.history,
+                offset=offset,
+            )
+            val_features_idx, val_targets_idx = direct_mimo_features_targets__train_idx(
+                id_column=val_data[id_col],
+                series_length=len(val_data),
+                model_horizon=self.model_horizon,
+                history_size=self.history,
+                offset=offset,
+            )
 
-        train_features, train_targets, categorical_features_idx = get_features_df_and_targets(
-            train_data,
-            train_features_idx,
-            train_targets_idx,
-            id_column=id_col,
-            date_column=timestamp_col,
-            target_column=value_col,
-            **self.feature_config,
-        )
-        val_features, val_targets, _ = get_features_df_and_targets(
-            val_data,
-            val_features_idx,
-            val_targets_idx,
-            id_column=id_col,
-            date_column=timestamp_col,
-            target_column=value_col,
-            **self.feature_config,
-        )
+            train_features, train_targets, categorical_features_idx = get_features_df_and_targets(
+                train_data,
+                train_features_idx,
+                train_targets_idx,
+                id_column=id_col,
+                date_column=timestamp_col,
+                target_column=value_col,
+                **self.feature_config,
+            )
+            val_features, val_targets, _ = get_features_df_and_targets(
+                val_data,
+                val_features_idx,
+                val_targets_idx,
+                id_column=id_col,
+                date_column=timestamp_col,
+                target_column=value_col,
+                **self.feature_config,
+            )
 
-        train_dataset = cb.Pool(
-            data=train_features,
-            label=train_targets,
-            cat_features=categorical_features_idx,
-        )
-        eval_dataset = cb.Pool(
-            data=val_features,
-            label=val_targets,
-            cat_features=categorical_features_idx,
-        )
+            train_dataset = cb.Pool(
+                data=train_features,
+                label=train_targets,
+                cat_features=categorical_features_idx,
+            )
+            eval_dataset = cb.Pool(
+                data=val_features,
+                label=val_targets,
+                cat_features=categorical_features_idx,
+            )
 
-        cb_model = cb.CatBoostRegressor(
-            loss_function="MultiRMSE",
-            random_seed=42,
-            verbose=100,
-            iterations=200,
-            learning_rate=0.1,
-            depth=6,
-            early_stopping_rounds=50,
-            task_type="GPU",
-            cat_features=categorical_features_idx,
-        )
+            cb_model = cb.CatBoostRegressor(
+                loss_function="MultiRMSE",
+                random_seed=42,
+                verbose=100,
+                iterations=200,
+                learning_rate=0.1,
+                depth=6,
+                early_stopping_rounds=50,
+                task_type="GPU",
+                cat_features=categorical_features_idx,
+            )
 
-        cb_model.fit(
-            train_dataset,
-            eval_set=eval_dataset,
-            use_best_model=True,
-            plot=False,
-        )
+            cb_model.fit(
+                train_dataset,
+                eval_set=eval_dataset,
+                use_best_model=True,
+                plot=False,
+            )
 
-        self.models.append(cb_model)
+            self.models.append(cb_model)
 
     def predict(self, test_data, id_col="sensor_id", timestamp_col="timestamp", value_col="value"):
-    """
-    test_data должен содержать:
-    - history наблюдений
-    - horizon будущих timestamps
-    - y для будущего может быть NaN
+        steps = self.horizon // self.model_horizon
+        preds_blocks = []
 
-    Возвращает прогноз только для horizon будущих точек.
-    """
-    steps = self.horizon // self.model_horizon
-    preds_blocks = []
+        for h in range(steps):
+            offset = self.model_horizon * h
 
-    for h in range(steps):
-        offset = self.model_horizon * h
+            test_features_idx, target_features_idx = direct_mimo_features__test_idx(
+                id_column=test_data[id_col],
+                series_length=len(test_data),
+                model_horizon=self.model_horizon,
+                history_size=self.history,
+                offset=offset,
+            )
 
-        test_features_idx, target_features_idx = direct_mimo_features__test_idx(
-            id_column=test_data[id_col],
-            series_length=len(test_data),
-            model_horizon=self.model_horizon,
-            history_size=self.history,
-            offset=offset,
-        )
+            test_features, _, _ = get_features_df_and_targets(
+                test_data,
+                test_features_idx,
+                target_features_idx,
+                id_column=id_col,
+                date_column=timestamp_col,
+                target_column=value_col,
+                **self.feature_config,
+            )
 
-        test_features, _, _ = get_features_df_and_targets(
-            test_data,
-            test_features_idx,
-            target_features_idx,
-            id_column=id_col,
-            date_column=timestamp_col,
-            target_column=value_col,
-            **self.feature_config,
-        )
+            preds = self.models[h].predict(test_features)
+            preds_blocks.append((target_features_idx, preds))
 
-        preds = self.models[h].predict(test_features)   # shape: (n_series, model_horizon)
-        preds_blocks.append((target_features_idx, preds))
+        result_parts = []
+        for target_idx, preds in preds_blocks:
+            pred_df = pd.DataFrame({
+                id_col: test_data.iloc[target_idx.flatten()][id_col].values,
+                timestamp_col: test_data.iloc[target_idx.flatten()][timestamp_col].values,
+                "predicted_value": preds.reshape(-1),
+            })
+            result_parts.append(pred_df)
 
-    # собираем итоговый прогноз
-    result_parts = []
-    for target_idx, preds in preds_blocks:
-        pred_df = pd.DataFrame({
-            id_col: test_data.iloc[target_idx.flatten()][id_col].values,
-            timestamp_col: test_data.iloc[target_idx.flatten()][timestamp_col].values,
-            "predicted_value": preds.reshape(-1),
-        })
-        result_parts.append(pred_df)
+        predictions = pd.concat(result_parts, ignore_index=True)
+        predictions = predictions.sort_values([id_col, timestamp_col]).reset_index(drop=True)
 
-    predictions = pd.concat(result_parts, ignore_index=True)
-    predictions = predictions.sort_values([id_col, timestamp_col]).reset_index(drop=True)
-
-    return predictions
+        return predictions
