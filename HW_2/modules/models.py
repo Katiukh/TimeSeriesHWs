@@ -435,7 +435,7 @@ class CatBoostDirectMIMO(BaseModel):
                 history_size=self.history,
                 offset=offset,
             )
-            val_features_idx, val_targets_idx = direct_mimo_features_targets__train_idx(
+            val_features_idx, val_targets_idx = direct_mimo_features_targets__holdout_idx(
                 id_column=val_data[id_col],
                 series_length=len(val_data),
                 model_horizon=self.model_horizon,
